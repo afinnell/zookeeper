@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.management.JMException;
 import javax.management.MBeanServer;
+import javax.management.MBeanServerFactory;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
@@ -47,8 +48,29 @@ public class MBeanRegistry {
     private Map<String, ZKMBeanInfo> mapName2Bean =
         new ConcurrentHashMap<String, ZKMBeanInfo>();
 
+    private MBeanServer mBeanServer;
+    
     public static MBeanRegistry getInstance(){
         return instance;
+    }
+    
+    public MBeanRegistry () {
+    	try {
+    		mBeanServer = ManagementFactory.getPlatformMBeanServer();        
+        } catch (Error e) {
+        	// Account for running within IKVM and create a new MBeanServer
+        	// if the PlatformMBeanServer does not exist.
+        	mBeanServer =  MBeanServerFactory.createMBeanServer();
+        }
+    }
+    
+    /**
+     * Return the underlying MBeanServer that is being
+     * used to register MBean's. The returned MBeanServer
+     * may be a new empty MBeanServer if running through IKVM.
+     */
+    public MBeanServer getPlatformMBeanServer() {
+    	return mBeanServer;
     }
     
     /**
@@ -71,10 +93,9 @@ public class MBeanRegistry {
         mapName2Bean.put(bean.getName(), bean);
         if(bean.isHidden())
             return;
-        MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
         ObjectName oname = makeObjectName(path, bean);
         try {
-            mbs.registerMBean(bean, oname);
+        	mBeanServer.registerMBean(bean, oname);
         } catch (JMException e) {
             LOG.warn("Failed to register MBean " + bean.getName());
             throw e;
@@ -90,9 +111,8 @@ public class MBeanRegistry {
         if(path==null)
             return;
         if (!bean.isHidden()) {
-            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
             try {
-                mbs.unregisterMBean(makeObjectName(path, bean));
+            	mBeanServer.unregisterMBean(makeObjectName(path, bean));
             } catch (JMException e) {
                 LOG.warn("Failed to unregister MBean " + bean.getName());
                 throw e;
