@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 public class MBeanRegistry {
     private static final Logger LOG = LoggerFactory.getLogger(MBeanRegistry.class);
     
-    private static MBeanRegistry instance=new MBeanRegistry(); 
+    private static MBeanRegistry instance = new MBeanRegistry(); 
     
     private Map<ZKMBeanInfo, String> mapBean2Path =
         new ConcurrentHashMap<ZKMBeanInfo, String>();
@@ -49,30 +49,30 @@ public class MBeanRegistry {
         new ConcurrentHashMap<String, ZKMBeanInfo>();
 
     private MBeanServer mBeanServer;
-    
-    public static MBeanRegistry getInstance(){
+
+    public static MBeanRegistry getInstance() {
         return instance;
     }
-    
+
     public MBeanRegistry () {
-    	try {
-    		mBeanServer = ManagementFactory.getPlatformMBeanServer();        
+        try {
+            mBeanServer = ManagementFactory.getPlatformMBeanServer();        
         } catch (Error e) {
-        	// Account for running within IKVM and create a new MBeanServer
-        	// if the PlatformMBeanServer does not exist.
-        	mBeanServer =  MBeanServerFactory.createMBeanServer();
+            // Account for running within IKVM and create a new MBeanServer
+            // if the PlatformMBeanServer does not exist.
+            mBeanServer =  MBeanServerFactory.createMBeanServer();
         }
     }
-    
+
     /**
      * Return the underlying MBeanServer that is being
      * used to register MBean's. The returned MBeanServer
      * may be a new empty MBeanServer if running through IKVM.
      */
     public MBeanServer getPlatformMBeanServer() {
-    	return mBeanServer;
+        return mBeanServer;
     }
-    
+
     /**
      * Registers a new MBean with the platform MBean server. 
      * @param bean the bean being registered
@@ -95,7 +95,7 @@ public class MBeanRegistry {
             return;
         ObjectName oname = makeObjectName(path, bean);
         try {
-        	mBeanServer.registerMBean(bean, oname);
+            mBeanServer.registerMBean(bean, oname);
         } catch (JMException e) {
             LOG.warn("Failed to register MBean " + bean.getName());
             throw e;
@@ -112,7 +112,7 @@ public class MBeanRegistry {
             return;
         if (!bean.isHidden()) {
             try {
-            	mBeanServer.unregisterMBean(makeObjectName(path, bean));
+                mBeanServer.unregisterMBean(makeObjectName(path, bean));
             } catch (JMException e) {
                 LOG.warn("Failed to unregister MBean " + bean.getName());
                 throw e;

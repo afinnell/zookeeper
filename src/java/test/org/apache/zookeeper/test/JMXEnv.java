@@ -47,7 +47,7 @@ public class JMXEnv {
     private static JMXConnector cc;
 
     public static void setUp() throws IOException {
-    	MBeanServer mbs = MBeanRegistry.getInstance().getPlatformMBeanServer();
+        MBeanServer mbs = MBeanRegistry.getInstance().getPlatformMBeanServer();
         
         JMXServiceURL url = new JMXServiceURL("service:jmx:rmi://");
         cs = JMXConnectorServerFactory.newJMXConnectorServer(url, null, mbs);

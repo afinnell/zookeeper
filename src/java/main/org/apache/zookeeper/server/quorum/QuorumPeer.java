@@ -250,6 +250,10 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
     protected int tick;
 
     /**
+     * @deprecated As of release 3.4.0, this class has been deprecated, since
+     * it is used with one of the udp-based versions of leader election, which
+     * we are also deprecating. 
+     * 
      * This class simply responds to requests for the current leader of this
      * node.
      * <p>
@@ -260,6 +264,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
      *
      *
      */
+    @Deprecated
     class ResponderThread extends Thread {
         ResponderThread() {
             super("ResponderThread");
@@ -666,33 +671,36 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
                             logFactory, this,
                             new ZooKeeperServer.BasicDataTreeBuilder(),
                             this.zkDb);
-                    try {
-                        // Instead of starting roZk immediately, wait some grace
-                        // period before we decide we're partitioned.
-                        //
-                        // Thread is used here because otherwise it would require
-                        // changes in each of election strategy classes which is
-                        // unnecessary code coupling.
-                        new Thread() {
-                            public void run() {
-                                try {
-                                    // lower-bound grace period to 2 secs
-                                    sleep(Math.max(2000, tickTime));
-                                    if (ServerState.LOOKING.equals(getPeerState())) {
-                                        roZk.startup();
-                                        LOG.info("Read-only server started");
-                                    }
-                                } catch (Exception e) {
-                                    LOG.error("FAILED to start ReadOnlyZooKeeperServer", e);
-                                }
-                            }
-                        }.start();
 
+                    // Instead of starting roZk immediately, wait some grace
+                    // period before we decide we're partitioned.
+                    //
+                    // Thread is used here because otherwise it would require
+                    // changes in each of election strategy classes which is
+                    // unnecessary code coupling.
+                    Thread roZkMgr = new Thread() {
+                        public void run() {
+                            try {
+                                // lower-bound grace period to 2 secs
+                                sleep(Math.max(2000, tickTime));
+                                if (ServerState.LOOKING.equals(getPeerState())) {
+                                    roZk.startup();
+                                }
+                            } catch (Exception e) {
+                                LOG.error("FAILED to start ReadOnlyZooKeeperServer", e);
+                            }
+                        }
+                    };
+                    try {
+                        roZkMgr.start();
                         setCurrentVote(makeLEStrategy().lookForLeader());
                     } catch (Exception e) {
                         LOG.warn("Unexpected exception",e);
                         setPeerState(ServerState.LOOKING);
                     } finally {
+                        // If the thread is in the the grace period, interrupt
+                        // to come out of waiting.
+                        roZkMgr.interrupt();
                         roZk.shutdown();
                     }
                     break;

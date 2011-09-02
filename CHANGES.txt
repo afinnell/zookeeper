@@ -292,6 +292,16 @@ BUGFIXES:
   
   ZOOKEEPER-1025. zkCli is overly sensitive to to spaces. (Laxman via camille)
 
+  ZOOKEEPER-1117. zookeeper 3.3.3 fails to build with gcc >= 4.6.1 on
+  Debian/Ubuntu (James Page via mahadev)
+
+  ZOOKEEPER-1140. server shutdown is not stopping threads. (laxman via mahadev)
+
+  ZOOKEEPER-1051. SIGPIPE in Zookeeper 0.3.* when send'ing after 
+  cluster disconnection (Stephen Tyree via mahadev)
+
+  ZOOKEEPER-1168. ZooKeeper fails to run with IKVM (Andrew Finnell via phunt)
+
 IMPROVEMENTS:
   ZOOKEEPER-724. Improve junit test integration - log harness information 
   (phunt via mahadev)
@@ -393,6 +403,8 @@ IMPROVEMENTS:
   ZOOKEEPER-1034. perl bindings should automatically find the zookeeper
   c-client headers (nicholas harteau via mahadev)
 
+  ZOOKEEPER-1166 Please add a few svn:ignore properties (via phunt)
+
 NEW FEATURES:
   ZOOKEEPER-729. Java client API to recursively delete a subtree.
   (Kay Kay via henry)
@@ -430,6 +442,11 @@ NEW FEATURES:
 
   ZOOKEEPER-1152. Exceptions thrown from handleAuthentication can cause buffer corruption issues in NIOServer. (camille via breed)
 
+  ZOOKEEPER-999. Create an package integration project (Eric Yang via phunt)
+
+DEPRECATION:
+  ZOOKEEPER-1153. Deprecate AuthFLE and LE. (Flavio Junqueira via mahadev)
+  
 Release 3.3.0 - 2010-03-24
 
 Non-backward compatible changes:
