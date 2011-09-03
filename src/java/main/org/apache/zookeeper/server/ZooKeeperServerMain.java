@@ -41,7 +41,7 @@ public class ZooKeeperServerMain {
 
     private ServerCnxnFactory cnxnFactory;   
     
-    private static int exitCode;
+    protected int exitCode;
 
     /*
      * Start up the ZooKeeper server.
@@ -66,12 +66,12 @@ public class ZooKeeperServerMain {
             System.exit(1);
         }
 
-        if (exitCode == 0) {
+        if (main.exitCode == 0) {
             LOG.info("Exiting normally");
         } else {
             LOG.info("Exiting abnormally");            
         }
-        System.exit(exitCode);
+        System.exit(main.exitCode);
     }
 
     protected void initializeAndRun(String[] args)

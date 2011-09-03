@@ -154,11 +154,12 @@ public class CommitProcessor extends Thread implements RequestProcessor {
                     }
                 }
             }
-        } catch (Exception ex) {
+        } catch (InterruptedException ex) {
             throw new ZooKeeperServerException (
                     "CommitProcessor has encountered an error.", 11, ex);
+        } finally {
+            LOG.info("CommitProcessor exited loop!");
         }
-        LOG.info("CommitProcessor exited loop!");
     }
 
     synchronized public void commit(Request request) {
