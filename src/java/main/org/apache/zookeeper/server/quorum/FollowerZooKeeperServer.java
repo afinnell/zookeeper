@@ -30,6 +30,8 @@ import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.SyncRequestProcessor;
 import org.apache.zookeeper.server.ZKDatabase;
+import org.apache.zookeeper.server.ZooKeeperServer;
+import org.apache.zookeeper.server.ZooKeeperServerException;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.txn.TxnHeader;
 
@@ -71,14 +73,26 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
 
     @Override
     protected void setupRequestProcessors() {
+        ThreadGroup monitoringGroup = new ThreadGroup("ZooKeeper Request Processing") {
+            public void uncaughtException(Thread t, Throwable e) {
+                LOG.error("Processor encountered an error", e);
+                // Force a shutdown of the server when a RequestProcessor
+                // exceptions out.
+                if (e instanceof ZooKeeperServerException) {
+                    setShutdownStatus(((ZooKeeperServerException)e).getErrorCode());
+                }
+                shutdown();
+            }
+        };
         RequestProcessor finalProcessor = new FinalRequestProcessor(this);
-        commitProcessor = new CommitProcessor(finalProcessor,
-                Long.toString(getServerId()), true);
+        commitProcessor = new CommitProcessor(monitoringGroup,
+                finalProcessor, Long.toString(getServerId()), true);
         commitProcessor.start();
-        firstProcessor = new FollowerRequestProcessor(this, commitProcessor);
+        firstProcessor = new FollowerRequestProcessor(monitoringGroup,
+                this, commitProcessor);
         ((FollowerRequestProcessor) firstProcessor).start();
-        syncProcessor = new SyncRequestProcessor(this,
-                new SendAckRequestProcessor((Learner)getFollower()));
+        syncProcessor = new SyncRequestProcessor(monitoringGroup, 
+                this, new SendAckRequestProcessor((Learner)getFollower()));
         syncProcessor.start();
     }
 
@@ -110,10 +124,12 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
         }
         long firstElementZxid = pendingTxns.element().zxid;
         if (firstElementZxid != zxid) {
-            LOG.error("Committing zxid 0x" + Long.toHexString(zxid)
-                    + " but next pending txn 0x"
-                    + Long.toHexString(firstElementZxid));
-            System.exit(12);
+            String errorMessage = 
+                "Committing zxid 0x" + Long.toHexString(zxid)
+            + " but next pending txn 0x"
+            + Long.toHexString(firstElementZxid);
+            LOG.error(errorMessage);
+            throw new RuntimeException (errorMessage);
         }
         Request request = pendingTxns.remove();
         commitProcessor.commit(request);

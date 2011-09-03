@@ -18,19 +18,10 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -69,7 +60,6 @@ import org.apache.zookeeper.server.auth.AuthenticationProvider;
 import org.apache.zookeeper.server.auth.ProviderRegistry;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.ReadOnlyZooKeeperServer;
-import org.apache.zookeeper.server.util.ZxidUtils;
 import javax.security.sasl.SaslException;
 
 /**
@@ -88,7 +78,6 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
 
     protected ZooKeeperServerBean jmxServerBean;
     protected DataTreeBean jmxDataTreeBean;
-
  
     /**
      * The server delegates loading of the tree to an instance of the interface
@@ -118,6 +107,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     protected RequestProcessor firstProcessor;
     protected volatile boolean running;
 
+    protected volatile int shutdownStatus = 0;
+    protected volatile Throwable shutdownCause;
+    
     /**
      * This is the secret that we use to generate passwords, for the moment it
      * is more of a sanity check.
@@ -276,10 +268,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         try {
             txnLogFactory.save(zkDb.getDataTree(), zkDb.getSessionWithTimeOuts());
         } catch (IOException e) {
-            LOG.error("Severe unrecoverable error, exiting", e);
-            // This is a severe error that we cannot recover from,
-            // so we need to exit
-            System.exit(10);
+            String errorMessage = "Severe unrecoverable error, exiting";
+            LOG.error(errorMessage, e);
+            throw new ZooKeeperServerException (errorMessage, 10, e);
         }
     }
 
@@ -301,6 +292,30 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
 
     long getTime() {
         return System.currentTimeMillis();
+    }
+    
+    /**
+     * Set the status of the server as it
+     * shuts down. 
+     */
+    protected void setShutdownStatus(int statusCode) {
+        this.shutdownStatus = statusCode;
+    }
+    
+    /**
+     * Return the status of the server after it has been
+     * shutdown. Returns 0 if no error.
+     */
+    public int getShutdownStatus() {
+        return shutdownStatus;
+    }
+    
+    protected void setShutdownCause(Throwable cause) {
+        this.shutdownCause = cause;
+    }
+    
+    public Throwable getShutdownCause() {
+        return this.shutdownCause;
     }
 
     private void close(long sessionId) {
@@ -398,11 +413,23 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
 
     protected void setupRequestProcessors() {
+        ThreadGroup monitoringGroup = new ThreadGroup("ZooKeeper Request Processing") {
+            public void uncaughtException(Thread t, Throwable e) {
+                LOG.error("Processor encountered an error", e);
+                // Force a shutdown of the server when a RequestProcessor
+                // exceptions out.
+                if (e instanceof ZooKeeperServerException) {
+                    setShutdownStatus(((ZooKeeperServerException)e).getErrorCode());
+                    setShutdownCause(e);
+                }                    
+                shutdown();
+            }
+        };
         RequestProcessor finalProcessor = new FinalRequestProcessor(this);
-        RequestProcessor syncProcessor = new SyncRequestProcessor(this,
-                finalProcessor);
+        RequestProcessor syncProcessor = new SyncRequestProcessor(monitoringGroup, 
+                this, finalProcessor);
         ((SyncRequestProcessor)syncProcessor).start();
-        firstProcessor = new PrepRequestProcessor(this, syncProcessor);
+        firstProcessor = new PrepRequestProcessor(monitoringGroup, this, syncProcessor);
         ((PrepRequestProcessor)firstProcessor).start();
     }
 

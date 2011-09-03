@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.Request;
+import org.apache.zookeeper.server.ZooKeeperServerException;
 import org.apache.zookeeper.server.ZooTrace;
 
 /**
@@ -43,6 +44,17 @@ public class FollowerRequestProcessor extends Thread implements
     LinkedBlockingQueue<Request> queuedRequests = new LinkedBlockingQueue<Request>();
 
     boolean finished = false;
+    
+    /**
+     * Construct a request processor that can
+     * be monitored by a ThreadGroup for uncaught exceptions. 
+     */
+    public FollowerRequestProcessor(ThreadGroup threadGroup,
+            FollowerZooKeeperServer zks, RequestProcessor nextProcessor) {
+        super(threadGroup, "FollowerRequestProcessor:" + zks.getServerId());
+        this.zks = zks;
+        this.nextProcessor = nextProcessor;
+    }
 
     public FollowerRequestProcessor(FollowerZooKeeperServer zks,
             RequestProcessor nextProcessor) {
@@ -90,7 +102,7 @@ public class FollowerRequestProcessor extends Thread implements
                 }
             }
         } catch (Exception e) {
-            LOG.error("Unexpected exception causing exit", e);
+            throw new ZooKeeperServerException ("Unexpected exception.", 11, e);
         }
         LOG.info("FollowerRequestProcessor exited loop!");
     }

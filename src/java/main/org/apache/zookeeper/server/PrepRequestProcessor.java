@@ -94,6 +94,18 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
     RequestProcessor nextProcessor;
 
     ZooKeeperServer zks;
+    
+    /**
+     * Construct a request processor that can
+     * be monitored by a ThreadGroup for uncaught exceptions. 
+     */    
+    public PrepRequestProcessor(ThreadGroup threadGroup, 
+            ZooKeeperServer zks, RequestProcessor nextProcessor) {
+        super(threadGroup, "ProcessThread(sid:" + zks.getServerId()
+                + " cport:" + zks.getClientPort() + "):");
+        this.nextProcessor = nextProcessor;
+        this.zks = zks;
+    }
 
     public PrepRequestProcessor(ZooKeeperServer zks,
             RequestProcessor nextProcessor) {

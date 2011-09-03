@@ -27,6 +27,7 @@ import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.SyncRequestProcessor;
 import org.apache.zookeeper.server.ZKDatabase;
+import org.apache.zookeeper.server.ZooKeeperServerException;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 
 /**
@@ -83,17 +84,29 @@ public class ObserverZooKeeperServer extends LearnerZooKeeperServer {
      */
     @Override
     protected void setupRequestProcessors() {      
+        ThreadGroup monitoringGroup = new ThreadGroup("ZooKeeper Request Processing") {
+            public void uncaughtException(Thread t, Throwable e) {
+                LOG.error("Processor encountered an error", e);
+                // Force a shutdown of the server when a RequestProcessor
+                // exceptions out.
+                if (e instanceof ZooKeeperServerException) {
+                    setShutdownStatus(((ZooKeeperServerException)e).getErrorCode());
+                }
+                shutdown();
+            }
+        };
         // We might consider changing the processor behaviour of 
         // Observers to, for example, remove the disk sync requirements.
         // Currently, they behave almost exactly the same as followers.
         RequestProcessor finalProcessor = new FinalRequestProcessor(this);
-        commitProcessor = new CommitProcessor(finalProcessor,
-                Long.toString(getServerId()), true);
+        commitProcessor = new CommitProcessor(monitoringGroup,
+                finalProcessor, Long.toString(getServerId()), true);
         commitProcessor.start();
-        firstProcessor = new ObserverRequestProcessor(this, commitProcessor);
+        firstProcessor = new ObserverRequestProcessor(monitoringGroup,
+                this, commitProcessor);
         ((ObserverRequestProcessor) firstProcessor).start();
-        syncProcessor = new SyncRequestProcessor(this,
-                new SendAckRequestProcessor(getObserver()));
+        syncProcessor = new SyncRequestProcessor(monitoringGroup,
+                this, new SendAckRequestProcessor(getObserver()));
         syncProcessor.start();
     }
     

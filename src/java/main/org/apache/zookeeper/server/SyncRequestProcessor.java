@@ -56,6 +56,20 @@ public class SyncRequestProcessor extends Thread implements RequestProcessor {
     private static int snapCount = ZooKeeperServer.getSnapCount();
 
     private final Request requestOfDeath = Request.requestOfDeath;
+    
+    /**
+     * Construct a Synchronized request processor that can
+     * be monitored by a ThreadGroup for uncaught exceptions. 
+     */
+    public SyncRequestProcessor(ThreadGroup threadGroup, 
+            ZooKeeperServer zks,
+            RequestProcessor nextProcessor)
+    {
+        super(threadGroup, "SyncThread:" + zks.getServerId());
+        this.zks = zks;
+        this.nextProcessor = nextProcessor;
+        running = true;
+    }
 
     public SyncRequestProcessor(ZooKeeperServer zks,
             RequestProcessor nextProcessor)
@@ -147,12 +161,13 @@ public class SyncRequestProcessor extends Thread implements RequestProcessor {
                     }
                 }
             }
-        } catch (Throwable t) {
-            LOG.error("Severe unrecoverable error, exiting", t);
+        } catch (Exception ex) {
             running = false;
-            System.exit(11);
+            throw new ZooKeeperServerException (
+                    "SyncRequestProcessor has encountered an unrecoverable error.", 11, ex);
+        } finally {
+            LOG.info("SyncRequestProcessor exited!");
         }
-        LOG.info("SyncRequestProcessor exited!");
     }
 
     private void flush(LinkedList<Request> toFlush) throws IOException {

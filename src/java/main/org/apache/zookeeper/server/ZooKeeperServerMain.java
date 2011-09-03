@@ -39,7 +39,9 @@ public class ZooKeeperServerMain {
     private static final String USAGE =
         "Usage: ZooKeeperServerMain configfile | port datadir [ticktime] [maxcnxns]";
 
-    private ServerCnxnFactory cnxnFactory;
+    private ServerCnxnFactory cnxnFactory;   
+    
+    private static int exitCode;
 
     /*
      * Start up the ZooKeeper server.
@@ -63,8 +65,13 @@ public class ZooKeeperServerMain {
             LOG.error("Unexpected exception, exiting abnormally", e);
             System.exit(1);
         }
-        LOG.info("Exiting normally");
-        System.exit(0);
+
+        if (exitCode == 0) {
+            LOG.info("Exiting normally");
+        } else {
+            LOG.info("Exiting abnormally");            
+        }
+        System.exit(exitCode);
     }
 
     protected void initializeAndRun(String[] args)
@@ -98,7 +105,24 @@ public class ZooKeeperServerMain {
             // so rather than spawning another thread, we will just call
             // run() in this thread.
             // create a file logger url from the command line args
-            ZooKeeperServer zkServer = new ZooKeeperServer();
+            ZooKeeperServer zkServer = new ZooKeeperServer() {
+                private boolean shutdownInProgress = false;
+                public void shutdown() {
+                    // Ensure recursion does not happen 
+                    // as the connection factory could still
+                    // have a reference to the server.
+                    if (shutdownInProgress) {
+                        return;
+                    }
+                    shutdownInProgress = true;
+                    super.shutdown();
+                    // Remove this ZK reference from the connection
+                    // factory so it cannot try to shutdown the
+                    // server again.                    
+                    cnxnFactory.setZooKeeperServer(null);                    
+                    cnxnFactory.shutdown();
+                }
+            };
 
             FileTxnSnapLog ftxn = new FileTxnSnapLog(new
                    File(config.dataLogDir), new File(config.dataDir));
@@ -109,11 +133,12 @@ public class ZooKeeperServerMain {
             cnxnFactory = ServerCnxnFactory.createFactory();
             cnxnFactory.configure(config.getClientPortAddress(),
                     config.getMaxClientCnxns());
-            cnxnFactory.startup(zkServer);
+            cnxnFactory.startup(zkServer);                        
             cnxnFactory.join();
             if (zkServer.isRunning()) {
                 zkServer.shutdown();
             }
+            exitCode = zkServer.getShutdownStatus();
         } catch (InterruptedException e) {
             // warn, but generally this is ok
             LOG.warn("Server interrupted", e);

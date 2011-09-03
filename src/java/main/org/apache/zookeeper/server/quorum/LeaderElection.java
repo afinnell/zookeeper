@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.zookeeper.jmx.MBeanRegistry;
+import org.apache.zookeeper.server.ZooKeeperServerException;
 import org.apache.zookeeper.server.quorum.Vote;
 import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
@@ -167,8 +168,9 @@ public class LeaderElection implements Election  {
                 s = new DatagramSocket();
                 s.setSoTimeout(200);
             } catch (SocketException e1) {
-                LOG.error("Socket exception when creating socket for leader election", e1);
-                System.exit(4);
+                String errorMessage = "Socket exception when creating socket for leader election";
+                LOG.error(errorMessage, e1);
+                throw new ZooKeeperServerException(errorMessage, 13, e1);
             }
             DatagramPacket requestPacket = new DatagramPacket(requestBytes,
                     requestBytes.length);

@@ -42,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.ServerCnxn;
+import org.apache.zookeeper.server.ZooKeeperServerException;
 import org.apache.zookeeper.server.ZooTrace;
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
 import org.apache.zookeeper.server.util.SerializeUtils;
@@ -337,18 +338,19 @@ public class Learner {
                         + Long.toHexString(qp.getZxid()));
                 boolean truncated=zk.getZKDatabase().truncateLog(qp.getZxid());
                 if (!truncated) {
+                    String errorMessage = "Not able to truncate the log "
+                        + Long.toHexString(qp.getZxid()); 
                     // not able to truncate the log
-                    LOG.error("Not able to truncate the log "
-                            + Long.toHexString(qp.getZxid()));
-                    System.exit(13);
+                    LOG.error(errorMessage);
+                    throw new ZooKeeperServerException(errorMessage, 13);
                 }
 
             }
             else {
-                LOG.error("Got unexpected packet from leader "
-                        + qp.getType() + " exiting ... " );
-                System.exit(13);
-
+                String errorMessage = "Got unexpected packet from leader "
+                    + qp.getType() + " exiting ... "; 
+                LOG.error(errorMessage);
+                throw new ZooKeeperServerException(errorMessage, 13);
             }
             zk.getZKDatabase().setlastProcessedZxid(qp.getZxid());
                         

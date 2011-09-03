@@ -45,6 +45,22 @@ public class ObserverRequestProcessor extends Thread implements
     LinkedBlockingQueue<Request> queuedRequests = new LinkedBlockingQueue<Request>();
 
     boolean finished = false;
+    
+    /**
+     * Constructor - takes an ObserverZooKeeperServer to associate with
+     * and the next processor to pass requests to after we're finished. 
+     * This constructor allows monitoring of uncaught exceptions through
+     * a ThreadGroup.
+     * @param threadGroup
+     * @param zks
+     * @param nextProcessor
+     */
+    public ObserverRequestProcessor(ThreadGroup threadGroup,
+            ObserverZooKeeperServer zks, RequestProcessor nextProcessor) {
+        super(threadGroup, "ObserverRequestProcessor:" + zks.getServerId());
+        this.zks = zks;
+        this.nextProcessor = nextProcessor;
+    }
 
     /**
      * Constructor - takes an ObserverZooKeeperServer to associate with

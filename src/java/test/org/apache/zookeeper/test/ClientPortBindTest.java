@@ -21,6 +21,7 @@ package org.apache.zookeeper.test;
 import static org.apache.zookeeper.test.ClientBase.CONNECTION_TIMEOUT;
 
 import java.io.File;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -61,9 +62,16 @@ public class ClientPortBindTest extends ZKTestCase implements Watcher {
             if (i.isLoopback()) {
                 Enumeration<InetAddress> addrs = i.getInetAddresses();
                 if (addrs.hasMoreElements()) {
-                    bindAddress = addrs.nextElement().getHostAddress();
-                    // handle the ipv6 scope_id - ie remove it
-                    bindAddress = bindAddress.split("%")[0];
+                    InetAddress address = addrs.nextElement();
+                    // With JDK6 or less NIO Channels does not
+                    // work with an IPV6 address. So only choose
+                    // IPV4 addresses for testing.
+                    // http://bugs.sun.com/view_bug.do?bug_id=6230761
+                    if (address instanceof Inet4Address) {
+                        bindAddress = address.getHostAddress();
+                        // handle the ipv6 scope_id - ie remove it
+                        bindAddress = bindAddress.split("%")[0];
+                    }
                 }
             }
         }

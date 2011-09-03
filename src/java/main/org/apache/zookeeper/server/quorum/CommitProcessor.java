@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.RequestProcessor;
+import org.apache.zookeeper.server.ZooKeeperServerException;
 
 /**
  * This RequestProcessor matches the incoming committed requests with the
@@ -55,6 +56,17 @@ public class CommitProcessor extends Thread implements RequestProcessor {
      * be true if the CommitProcessor is in a Leader pipeline.
      */
     boolean matchSyncs;
+    
+    /**
+     * Construct a request processor that can
+     * be monitored by a ThreadGroup for uncaught exceptions. 
+     */    
+    public CommitProcessor(ThreadGroup threadGroup,
+            RequestProcessor nextProcessor, String id, boolean matchSyncs) {
+        super(threadGroup, "CommitProcessor:" + id);
+        this.nextProcessor = nextProcessor;
+        this.matchSyncs = matchSyncs;
+    }   
 
     public CommitProcessor(RequestProcessor nextProcessor, String id, boolean matchSyncs) {
         super("CommitProcessor:" + id);
@@ -142,10 +154,9 @@ public class CommitProcessor extends Thread implements RequestProcessor {
                     }
                 }
             }
-        } catch (InterruptedException e) {
-            LOG.warn("Interrupted exception while waiting", e);
-        } catch (Throwable e) {
-            LOG.error("Unexpected exception causing CommitProcessor to exit", e);
+        } catch (Exception ex) {
+            throw new ZooKeeperServerException (
+                    "CommitProcessor has encountered an error.", 11, ex);
         }
         LOG.info("CommitProcessor exited loop!");
     }

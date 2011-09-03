@@ -30,6 +30,7 @@ import junit.framework.Assert;
 import org.apache.log4j.Layout;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 import org.apache.log4j.WriterAppender;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -127,15 +128,17 @@ public class ReadOnlyModeTest extends ZKTestCase {
         }
         Assert.assertTrue("Did not succeed in connecting in 30s", success);
 
-        // kill peer and wait no more than 5 seconds for read-only server
-        // to be started (which should take one tickTime (2 seconds))
+        // kill peer and wait no more than 10 seconds for read-only server
+        // to be started (which should take one tickTime (2 seconds) + 2 seconds
+        // of grace wait time for the read-only server to start.) (total 4 seconds 
+        // and any context switching.)
         qu.shutdown(2);
         long start = System.currentTimeMillis();
         while (!(zk.getState() == States.CONNECTEDREADONLY)) {
             Thread.sleep(200);
             Assert.assertTrue("Can't connect to the server", System
                     .currentTimeMillis()
-                    - start < 5000);
+                    - start < 10000);
         }
 
         // At this point states list should contain, in the given order,
@@ -184,8 +187,14 @@ public class ReadOnlyModeTest extends ZKTestCase {
     public void testSeekForRwServer() throws Exception {
 
         // setup the logger to capture all logs
-        Layout layout = Logger.getRootLogger().getAppender("CONSOLE")
-                .getLayout();
+        // Don't rely on an external configuration of logging to ensure
+        // this test succeeds. This test requires a specific layout in 
+        // order to validate success, so explicitly set the layout.
+        //        Layout layout = Logger.getRootLogger().getAppender("CONSOLE")
+        //                .getLayout();        
+        Layout layout = 
+            new PatternLayout("%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n");
+        
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         WriterAppender appender = new WriterAppender(layout, os);
         appender.setImmediateFlush(true);
